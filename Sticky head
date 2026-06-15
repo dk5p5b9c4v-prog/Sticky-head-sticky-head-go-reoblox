@@ -1,0 +1,385 @@
+-- LocalScript in StarterPlayerScripts
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Settings (start at 2.0)
+local pullStrength = 2.0
+local stickiness = 2.0
+local isSticking = false
+local isMenuOpen = false
+local targetPlayer = nil
+local bodyPos = nil
+local bodyGyro = nil
+local updateConnection = nil
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "StickyHeadMenu"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.ResetOnSpawn = false
+
+-- Main Frame (dark grey, rounded)
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 300, 0, 320)
+mainFrame.Position = UDim2.new(0.5, -150, 0.5, -160)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+mainFrame.BackgroundTransparency = 0
+mainFrame.BorderSizePixel = 0
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 16)
+corner.Parent = mainFrame
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 45)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "STICKY HEAD v5"
+title.TextColor3 = Color3.fromRGB(220, 220, 220)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.Parent = mainFrame
+
+-- Pull Strength Section
+local pullLabel = Instance.new("TextLabel")
+pullLabel.Size = UDim2.new(0.6, 0, 0, 30)
+pullLabel.Position = UDim2.new(0.05, 0, 0, 55)
+pullLabel.BackgroundTransparency = 1
+pullLabel.Text = "Pull Strength:"
+pullLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+pullLabel.Font = Enum.Font.Gotham
+pullLabel.TextSize = 14
+pullLabel.TextXAlignment = Enum.TextXAlignment.Left
+pullLabel.Parent = mainFrame
+
+-- Pull Strength Value Display
+local pullValueBg = Instance.new("Frame")
+pullValueBg.Size = UDim2.new(0, 60, 0, 40)
+pullValueBg.Position = UDim2.new(0.7, 0, 0, 50)
+pullValueBg.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+pullValueBg.BorderSizePixel = 0
+pullValueBg.Parent = mainFrame
+
+local valueCorner = Instance.new("UICorner")
+valueCorner.CornerRadius = UDim.new(0, 8)
+valueCorner.Parent = pullValueBg
+
+local pullValueText = Instance.new("TextLabel")
+pullValueText.Size = UDim2.new(1, 0, 1, 0)
+pullValueText.BackgroundTransparency = 1
+pullValueText.Text = string.format("%.1f", pullStrength)
+pullValueText.TextColor3 = Color3.fromRGB(240, 240, 240)
+pullValueText.Font = Enum.Font.GothamBold
+pullValueText.TextSize = 18
+pullValueText.Parent = pullValueBg
+
+-- Pull Strength Increase Button (light dark grey)
+local pullUpButton = Instance.new("TextButton")
+pullUpButton.Size = UDim2.new(0.85, 0, 0, 45)
+pullUpButton.Position = UDim2.new(0.075, 0, 0, 95)
+pullUpButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+pullUpButton.Text = "▲ +0.2 (0 → 4.0)"
+pullUpButton.TextColor3 = Color3.fromRGB(240, 240, 240)
+pullUpButton.Font = Enum.Font.GothamSemibold
+pullUpButton.TextSize = 13
+pullUpButton.BorderSizePixel = 0
+pullUpButton.Parent = mainFrame
+
+local upCorner = Instance.new("UICorner")
+upCorner.CornerRadius = UDim.new(0, 8)
+upCorner.Parent = pullUpButton
+
+-- Stickiness Section
+local stickyLabel = Instance.new("TextLabel")
+stickyLabel.Size = UDim2.new(0.6, 0, 0, 30)
+stickyLabel.Position = UDim2.new(0.05, 0, 0, 155)
+stickyLabel.BackgroundTransparency = 1
+stickyLabel.Text = "Stickiness:"
+stickyLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+stickyLabel.Font = Enum.Font.Gotham
+stickyLabel.TextSize = 14
+stickyLabel.TextXAlignment = Enum.TextXAlignment.Left
+stickyLabel.Parent = mainFrame
+
+-- Stickiness Value Display
+local stickyValueBg = Instance.new("Frame")
+stickyValueBg.Size = UDim2.new(0, 60, 0, 40)
+stickyValueBg.Position = UDim2.new(0.7, 0, 0, 150)
+stickyValueBg.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+stickyValueBg.BorderSizePixel = 0
+stickyValueBg.Parent = mainFrame
+
+local stickyValueCorner = Instance.new("UICorner")
+stickyValueCorner.CornerRadius = UDim.new(0, 8)
+stickyValueCorner.Parent = stickyValueBg
+
+local stickyValueText = Instance.new("TextLabel")
+stickyValueText.Size = UDim2.new(1, 0, 1, 0)
+stickyValueText.BackgroundTransparency = 1
+stickyValueText.Text = string.format("%.1f", stickiness)
+stickyValueText.TextColor3 = Color3.fromRGB(240, 240, 240)
+stickyValueText.Font = Enum.Font.GothamBold
+stickyValueText.TextSize = 18
+stickyValueText.Parent = stickyValueBg
+
+-- Stickiness Increase Button
+local stickyUpButton = Instance.new("TextButton")
+stickyUpButton.Size = UDim2.new(0.85, 0, 0, 45)
+stickyUpButton.Position = UDim2.new(0.075, 0, 0, 195)
+stickyUpButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+stickyUpButton.Text = "▲ +0.2 (0 → 4.0)"
+stickyUpButton.TextColor3 = Color3.fromRGB(240, 240, 240)
+stickyUpButton.Font = Enum.Font.GothamSemibold
+stickyUpButton.TextSize = 13
+stickyUpButton.BorderSizePixel = 0
+stickyUpButton.Parent = mainFrame
+
+local stickyUpCorner = Instance.new("UICorner")
+stickyUpCorner.CornerRadius = UDim.new(0, 8)
+stickyUpCorner.Parent = stickyUpButton
+
+-- Status Label
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(0.9, 0, 0, 35)
+statusLabel.Position = UDim2.new(0.05, 0, 0, 250)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Status: ❌ Inactive"
+statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextSize = 12
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = mainFrame
+
+-- Toggle Button (light dark grey)
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0.4, 0, 0, 40)
+toggleButton.Position = UDim2.new(0.075, 0, 0, 290)
+toggleButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+toggleButton.Text = "G - TOGGLE"
+toggleButton.TextColor3 = Color3.fromRGB(240, 240, 240)
+toggleButton.Font = Enum.Font.GothamSemibold
+toggleButton.TextSize = 13
+toggleButton.BorderSizePixel = 0
+toggleButton.Parent = mainFrame
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 8)
+toggleCorner.Parent = toggleButton
+
+-- Close Menu Button
+local closeMenuBtn = Instance.new("TextButton")
+closeMenuBtn.Size = UDim2.new(0.4, 0, 0, 40)
+closeMenuBtn.Position = UDim2.new(0.525, 0, 0, 290)
+closeMenuBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+closeMenuBtn.Text = "K - CLOSE"
+closeMenuBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+closeMenuBtn.Font = Enum.Font.GothamSemibold
+closeMenuBtn.TextSize = 13
+closeMenuBtn.BorderSizePixel = 0
+closeMenuBtn.Parent = mainFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 8)
+closeCorner.Parent = closeMenuBtn
+
+-- Open Button (small dark grey circle)
+local openButton = Instance.new("TextButton")
+openButton.Size = UDim2.new(0, 55, 0, 55)
+openButton.Position = UDim2.new(0, 15, 0.85, 0)
+openButton.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+openButton.Text = "🧲"
+openButton.TextColor3 = Color3.fromRGB(240, 240, 240)
+openButton.Font = Enum.Font.GothamBold
+openButton.TextSize = 24
+openButton.BorderSizePixel = 0
+openButton.Parent = screenGui
+
+local openCorner = Instance.new("UICorner")
+openCorner.CornerRadius = UDim.new(1, 0)
+openCorner.Parent = openButton
+
+-- Helper Functions
+local function cleanUp()
+    if bodyPos then bodyPos:Destroy() end
+    if bodyGyro then bodyGyro:Destroy() end
+    if updateConnection then updateConnection:Disconnect() end
+    bodyPos = nil
+    bodyGyro = nil
+    updateConnection = nil
+end
+
+local function increaseValue(current)
+    -- Increases by 0.2, wraps at 4.0 back to 0
+    local newValue = current + 0.2
+    if newValue > 4.01 then -- using 4.01 to handle floating point
+        return 0
+    end
+    -- Round to 1 decimal place
+    return math.round(newValue * 10) / 10
+end
+
+local function updatePullStrengthUI()
+    pullValueText.Text = string.format("%.1f", pullStrength)
+end
+
+local function updateStickinessUI()
+    stickyValueText.Text = string.format("%.1f", stickiness)
+end
+
+local function getNearestPlayer()
+    local closest = nil
+    local closestDist = 20
+    for _, otherPlayer in ipairs(game.Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("Head") then
+            local dist = (rootPart.Position - otherPlayer.Character.Head.Position).Magnitude
+            if dist < closestDist then
+                closestDist = dist
+                closest = otherPlayer
+            end
+        end
+    end
+    return closest
+end
+
+local function startSticking(target)
+    if not target or not target.Character then return end
+    local targetHead = target.Character:FindFirstChild("Head")
+    if not targetHead then return end
+    
+    cleanUp()
+    targetPlayer = target
+    
+    bodyPos = Instance.new("BodyPosition")
+    local maxForce = 4000 * (pullStrength / 2)
+    if maxForce < 0.1 then maxForce = 0.1 end
+    bodyPos.MaxForce = Vector3.new(maxForce, maxForce, maxForce)
+    bodyPos.P = 2000 * (stickiness / 1.5)
+    bodyPos.D = 500 * (stickiness / 1.5)
+    bodyPos.Position = targetHead.Position + Vector3.new(0, 1.5, 0)
+    bodyPos.Parent = rootPart
+    
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(4000, 4000, 4000) * (stickiness / 1.5)
+    bodyGyro.P = 3000 * (stickiness / 1.5)
+    bodyGyro.CFrame = CFrame.new(rootPart.Position, targetHead.Position)
+    bodyGyro.Parent = rootPart
+    
+    updateConnection = game:GetService("RunService").RenderStepped:Connect(function()
+        if not isSticking or not targetPlayer or not targetPlayer.Character then
+            cleanUp()
+            isSticking = false
+            statusLabel.Text = "Status: ❌ Inactive"
+            return
+        end
+        local currentHead = targetPlayer.Character:FindFirstChild("Head")
+        if currentHead then
+            bodyPos.Position = currentHead.Position + Vector3.new(0, 1.5, 0)
+            bodyGyro.CFrame = CFrame.new(rootPart.Position, currentHead.Position)
+        else
+            cleanUp()
+            isSticking = false
+            statusLabel.Text = "Status: ❌ Inactive"
+        end
+    end)
+    
+    statusLabel.Text = "Status: ✅ Sticking to " .. targetPlayer.Name
+end
+
+local function toggleSticky()
+    if isSticking then
+        cleanUp()
+        isSticking = false
+        targetPlayer = nil
+        statusLabel.Text = "Status: ❌ Inactive"
+    else
+        local nearest = getNearestPlayer()
+        if nearest then
+            startSticking(nearest)
+            isSticking = true
+        else
+            statusLabel.Text = "Status: ⚠️ No players nearby"
+            task.wait(1)
+            if not isSticking then
+                statusLabel.Text = "Status: ❌ Inactive"
+            end
+        end
+    end
+end
+
+local function updateActiveSticking()
+    if isSticking and targetPlayer and targetPlayer.Character then
+        local maxForce = 4000 * (pullStrength / 2)
+        if maxForce < 0.1 then maxForce = 0.1 end
+        if bodyPos then
+            bodyPos.MaxForce = Vector3.new(maxForce, maxForce, maxForce)
+            bodyPos.P = 2000 * (stickiness / 1.5)
+            bodyPos.D = 500 * (stickiness / 1.5)
+        end
+        if bodyGyro then
+            bodyGyro.MaxTorque = Vector3.new(4000, 4000, 4000) * (stickiness / 1.5)
+            bodyGyro.P = 3000 * (stickiness / 1.5)
+        end
+    end
+end
+
+-- Button Actions (Increase by 0.2 each click)
+pullUpButton.MouseButton1Click:Connect(function()
+    pullStrength = increaseValue(pullStrength)
+    updatePullStrengthUI()
+    updateActiveSticking()
+end)
+
+stickyUpButton.MouseButton1Click:Connect(function()
+    stickiness = increaseValue(stickiness)
+    updateStickinessUI()
+    updateActiveSticking()
+end)
+
+toggleButton.MouseButton1Click:Connect(toggleSticky)
+closeMenuBtn.MouseButton1Click:Connect(function()
+    isMenuOpen = false
+    mainFrame.Visible = false
+end)
+
+openButton.MouseButton1Click:Connect(function()
+    isMenuOpen = not isMenuOpen
+    mainFrame.Visible = isMenuOpen
+end)
+
+-- Keybinds
+local uis = game:GetService("UserInputService")
+uis.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.G then
+        toggleSticky()
+    elseif input.KeyCode == Enum.KeyCode.K then
+        isMenuOpen = not isMenuOpen
+        mainFrame.Visible = isMenuOpen
+    end
+end)
+
+-- Stop sticking on jump
+humanoid.Jumping:Connect(function()
+    if isSticking then
+        cleanUp()
+        isSticking = false
+        statusLabel.Text = "Status: ❌ Inactive"
+    end
+end)
+
+-- Character respawn handling
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    rootPart = character:WaitForChild("HumanoidRootPart")
+    humanoid = character:WaitForChild("Humanoid")
+    isSticking = false
+    targetPlayer = nil
+    cleanUp()
+    statusLabel.Text = "Status: ❌ Inactive"
+end)
