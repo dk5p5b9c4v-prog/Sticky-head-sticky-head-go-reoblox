@@ -1,0 +1,229 @@
+-- Ball TP Control (LocalScript) - NFL Universe Football
+-- Ultra-Strong Ball Detection + Clean Minimal GUI
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BallTPControl"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Main Frame - Clean & Minimal
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 340, 0, 250)
+mainFrame.Position = UDim2.new(0.5, -170, 0.5, -125)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 10)
+mainCorner.Parent = mainFrame
+
+-- Title Bar (Draggable only)
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 42)
+title.BackgroundColor3 = Color3.fromRGB(0, 110, 220)
+title.Text = "Ball TP Control"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = mainFrame
+title.Active = true
+title.Draggable = true
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 10)
+titleCorner.Parent = title
+
+-- Close Button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 32, 0, 32)
+closeBtn.Position = UDim2.new(1, -38, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextScaled = true
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Parent = mainFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(1, 0)
+closeCorner.Parent = closeBtn
+
+closeBtn.MouseButton1Click:Connect(function() screenGui.Enabled = false end)
+
+-- Master On/Off
+local scriptEnabled = true
+
+local masterBtn = Instance.new("TextButton")
+masterBtn.Size = UDim2.new(0.85, 0, 0, 46)
+masterBtn.Position = UDim2.new(0.075, 0, 0, 55)
+masterBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 90)
+masterBtn.Text = "✅ Script: ENABLED"
+masterBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+masterBtn.TextScaled = true
+masterBtn.Font = Enum.Font.GothamSemibold
+masterBtn.Parent = mainFrame
+
+local masterCorner = Instance.new("UICorner")
+masterCorner.CornerRadius = UDim.new(0, 8)
+masterCorner.Parent = masterBtn
+
+masterBtn.MouseButton1Click:Connect(function()
+    scriptEnabled = not scriptEnabled
+    if scriptEnabled then
+        masterBtn.Text = "✅ Script: ENABLED"
+        masterBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 90)
+    else
+        masterBtn.Text = "❌ Script: DISABLED"
+        masterBtn.BackgroundColor3 = Color3.fromRGB(190, 50, 50)
+    end
+end)
+
+-- Offset Slider
+local offsetLabel = Instance.new("TextLabel")
+offsetLabel.Size = UDim2.new(0.85, 0, 0, 24)
+offsetLabel.Position = UDim2.new(0.075, 0, 0, 115)
+offsetLabel.BackgroundTransparency = 1
+offsetLabel.Text = "Hand Offset: 1.8 studs"
+offsetLabel.TextColor3 = Color3.fromRGB(200, 200, 230)
+offsetLabel.TextScaled = true
+offsetLabel.Font = Enum.Font.GothamSemibold
+offsetLabel.Parent = mainFrame
+
+local offsetSlider = Instance.new("Frame")
+offsetSlider.Size = UDim2.new(0.85, 0, 0, 9)
+offsetSlider.Position = UDim2.new(0.075, 0, 0, 145)
+offsetSlider.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+offsetSlider.Parent = mainFrame
+
+local sliderBar = Instance.new("Frame")
+sliderBar.Size = UDim2.new(0.6, 0, 1, 0)
+sliderBar.BackgroundColor3 = Color3.fromRGB(0, 160, 255)
+sliderBar.Parent = offsetSlider
+
+local knob = Instance.new("Frame")
+knob.Size = UDim2.new(0, 17, 0, 17)
+knob.BackgroundColor3 = Color3.fromRGB(0, 210, 255)
+knob.BorderSizePixel = 0
+knob.Parent = offsetSlider
+knob.ZIndex = 3
+
+local knobCorner = Instance.new("UICorner")
+knobCorner.CornerRadius = UDim.new(1, 0)
+knobCorner.Parent = knob
+
+local sliderCorner = Instance.new("UICorner")
+sliderCorner.CornerRadius = UDim.new(0, 5)
+sliderCorner.Parent = offsetSlider
+sliderCorner:Clone().Parent = sliderBar
+
+local offsetValue = 1.8
+
+local function updateSlider(val)
+    offsetValue = math.clamp(val, 0.5, 5)
+    local percent = (offsetValue - 0.5) / 4.5
+    sliderBar.Size = UDim2.new(percent, 0, 1, 0)
+    local sliderAbsSize = offsetSlider.AbsoluteSize.X
+    local knobX = percent * sliderAbsSize - 8.5
+    knob.Position = UDim2.new(0, knobX, 0.5, -8.5)
+    offsetLabel.Text = string.format("Hand Offset: %.1f studs", offsetValue)
+end
+
+local function handleSliderDrag()
+    local conn = UserInputService.InputChanged:Connect(function(move)
+        if move.UserInputType == Enum.UserInputType.MouseMovement then
+            local rel = (move.Position.X - offsetSlider.AbsolutePosition.X) / offsetSlider.AbsoluteSize.X
+            updateSlider(0.5 + rel * 4.5)
+        end
+    end)
+    local release = UserInputService.InputEnded:Connect(function(endInput)
+        if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+            conn:Disconnect()
+            release:Disconnect()
+        end
+    end)
+end
+
+offsetSlider.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        handleSliderDrag()
+    end
+end)
+
+updateSlider(1.8)
+
+-- === BEST BALL DETECTION YET ===
+local function getBall()
+    local bestBall = nil
+    local bestScore = -1
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Size.Magnitude < 10 then  -- Very strict
+            local nameLower = obj.Name:lower()
+            local score = 0
+
+            if nameLower:find("football") or nameLower:find("theduke") or nameLower:find("duke") then 
+                score = score + 200 
+            end
+            if nameLower:find("ball") then score = score + 80 end
+            if obj.AssemblyLinearVelocity.Magnitude > 0.5 then score = score + 50 end
+            if obj.CanCollide == true then score = score + 30 end
+            if obj.Transparency < 0.5 then score = score + 20 end
+
+            if score > bestScore then
+                bestScore = score
+                bestBall = obj
+            end
+        end
+    end
+
+    return bestBall or workspace:FindFirstChild("Football") or workspace:FindFirstChild("Ball")
+end
+
+local function getHand()
+    local character = player.Character
+    if not character then return nil end
+    return character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+end
+
+local function teleportBallToHand()
+    if not scriptEnabled then return end
+    local hand = getHand()
+    local ball = getBall()
+    if hand and ball and ball:IsA("BasePart") then
+        ball.CFrame = hand.CFrame * CFrame.new(0, 0, -offsetValue)
+        ball.AssemblyLinearVelocity = Vector3.new(0,0,0)
+        ball.AssemblyAngularVelocity = Vector3.new(0,0,0)
+        if ball.SetNetworkOwner then ball:SetNetworkOwner(player) end
+        print("✅ Caught the real football!")
+    else
+        warn("⚠️ Could not find the football!")
+    end
+end
+
+-- Mouse Click Catch
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp or not scriptEnabled then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        teleportBallToHand()
+    end
+end)
+
+-- Toggle Menu (B key)
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.B then
+        screenGui.Enabled = not screenGui.Enabled
+    end
+end)
+
+print("✅ Clean GUI + Strong Ball Detection loaded! Press B | Left Click to catch")
