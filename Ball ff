@@ -1,0 +1,272 @@
+-- Ball TP Control (LocalScript)
+-- Enhanced Manipulation + Mouse Click Catch - Dark Gray + Blue
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BallTPControl"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Main Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 320, 0, 400)
+mainFrame.Position = UDim2.new(0.5, -160, 0.5, -200)
+mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+title.Text = "Ball TP Control"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = mainFrame
+
+-- Close Button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextScaled = true
+closeBtn.Font = Enum.Font.Gotham
+closeBtn.Parent = mainFrame
+
+closeBtn.MouseButton1Click:Connect(function() screenGui.Enabled = false end)
+
+local function createButton(text, yPos, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.85, 0, 0, 45)
+    btn.Position = UDim2.new(0.075, 0, 0, yPos)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(0, 180, 255)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamSemibold
+    btn.Parent = mainFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+    
+    btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(55, 55, 70) end)
+    btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(45, 45, 55) end)
+    
+    if callback then btn.MouseButton1Click:Connect(callback) end
+    return btn
+end
+
+local tpBtn   = createButton("Teleport to Hand (Instant)", 55, nil)
+local findBtn = createButton("Find & Highlight Ball", 110, nil)
+local dropBtn = createButton("Drop Ball", 165, nil)
+
+-- Manipulation Mode Toggle
+local magnetEnabled = false
+local magnetConnection = nil
+local currentHandSide = "Right"
+
+local magnetBtn = createButton("Manipulation Mode: OFF", 220, function()
+    magnetEnabled = not magnetEnabled
+    magnetBtn.Text = "Manipulation Mode: " .. (magnetEnabled and "ON ["..currentHandSide.."]" or "OFF")
+    if magnetEnabled then
+        magnetBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        startManipulation()
+    else
+        magnetBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        stopManipulation()
+    end
+end)
+
+-- Hand Selector
+local handBtn = createButton(currentHandSide, 275, function()
+    currentHandSide = currentHandSide == "Right" and "Left" or "Right"
+    handBtn.Text = currentHandSide
+    if magnetEnabled then
+        magnetBtn.Text = "Manipulation Mode: ON ["..currentHandSide.."]"
+    end
+end)
+handBtn.Size = UDim2.new(0.4, 0, 0, 35)
+handBtn.Position = UDim2.new(0.5, 0, 0, 272)
+
+local handLabel = Instance.new("TextLabel")
+handLabel.Size = UDim2.new(0.4, 0, 0, 30)
+handLabel.Position = UDim2.new(0.075, 0, 0, 275)
+handLabel.BackgroundTransparency = 1
+handLabel.Text = "Hand:"
+handLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+handLabel.TextScaled = true
+handLabel.Font = Enum.Font.Gotham
+handLabel.TextXAlignment = Enum.TextXAlignment.Left
+handLabel.Parent = mainFrame
+
+-- Offset Slider
+local offsetLabel = Instance.new("TextLabel")
+offsetLabel.Size = UDim2.new(0.85, 0, 0, 25)
+offsetLabel.Position = UDim2.new(0.075, 0, 0, 315)
+offsetLabel.BackgroundTransparency = 1
+offsetLabel.Text = "Hand Offset: 1.8 studs"
+offsetLabel.TextColor3 = Color3.fromRGB(180, 180, 255)
+offsetLabel.TextScaled = true
+offsetLabel.Font = Enum.Font.Gotham
+offsetLabel.Parent = mainFrame
+
+local offsetSlider = Instance.new("Frame")
+offsetSlider.Size = UDim2.new(0.85, 0, 0, 8)
+offsetSlider.Position = UDim2.new(0.075, 0, 0, 345)
+offsetSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+offsetSlider.Parent = mainFrame
+
+local sliderBar = Instance.new("Frame")
+sliderBar.Size = UDim2.new(0.6, 0, 1, 0)
+sliderBar.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
+sliderBar.Parent = offsetSlider
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 4)
+corner.Parent = offsetSlider
+corner:Clone().Parent = sliderBar
+
+local offsetValue = 1.8
+
+local function updateSlider(val)
+    offsetValue = math.clamp(val, 0.5, 5)
+    local percent = (offsetValue - 0.5) / 4.5
+    sliderBar.Size = UDim2.new(percent, 0, 1, 0)
+    offsetLabel.Text = string.format("Hand Offset: %.1f studs", offsetValue)
+end
+
+offsetSlider.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local conn = UserInputService.InputChanged:Connect(function(move)
+            if move.UserInputType == Enum.UserInputType.MouseMovement then
+                local rel = (move.Position.X - offsetSlider.AbsolutePosition.X) / offsetSlider.AbsoluteSize.X
+                updateSlider(0.5 + rel * 4.5)
+            end
+        end)
+        local release = UserInputService.InputEnded:Connect(function(endInput)
+            if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                conn:Disconnect()
+                release:Disconnect()
+            end
+        end)
+    end
+end)
+
+-- Main Frame Corner
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 8)
+mainCorner.Parent = mainFrame
+
+local function getBall()
+    local ball = workspace:FindFirstChild("Football") or workspace:FindFirstChild("Ball")
+    if not ball then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and (obj.Name:lower():find("ball") or obj.Name:lower():find("football")) then
+                return obj
+            end
+        end
+    end
+    return ball
+end
+
+local function getHand()
+    local character = player.Character
+    if not character then return nil end
+    return currentHandSide == "Right" 
+        and (character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm"))
+        or  (character:FindFirstChild("LeftHand") or character:FindFirstChild("Left Arm"))
+end
+
+local function teleportBallToHand()
+    local hand = getHand()
+    local ball = getBall()
+    if hand and ball and ball:IsA("BasePart") then
+        ball.CFrame = hand.CFrame * CFrame.new(0, 0, -offsetValue)
+        ball.AssemblyLinearVelocity = Vector3.new(0,0,0)
+        ball.AssemblyAngularVelocity = Vector3.new(0,0,0)
+        if ball.SetNetworkOwner then ball:SetNetworkOwner(player) end
+        print("Ball caught to " .. currentHandSide .. " hand!")
+    end
+end
+
+tpBtn.MouseButton1Click:Connect(teleportBallToHand)
+
+-- Quick Catch on Left Mouse Click
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        teleportBallToHand()
+    end
+end)
+
+-- Enhanced Manipulation
+local function startManipulation()
+    stopManipulation()
+    magnetConnection = RunService.Heartbeat:Connect(function()
+        if not magnetEnabled then return end
+        
+        local hand = getHand()
+        local ball = getBall()
+        local character = player.Character
+        if not hand or not ball or not ball:IsA("BasePart") or not character then return end
+        
+        local targetPos = hand.Position + hand.CFrame.LookVector * -offsetValue
+        local direction = (targetPos - ball.Position)
+        local distance = direction.Magnitude
+        
+        local pullStrength = distance > 8 and 45 or 75
+        local force = direction.Unit * math.min(distance * pullStrength, 350)
+        
+        ball.AssemblyLinearVelocity = ball.AssemblyLinearVelocity:Lerp(force, 0.6)
+        ball.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        
+        if ball.SetNetworkOwner then ball:SetNetworkOwner(player) end
+    end)
+end
+
+local function stopManipulation()
+    if magnetConnection then
+        magnetConnection:Disconnect()
+        magnetConnection = nil
+    end
+end
+
+findBtn.MouseButton1Click:Connect(function()
+    local ball = getBall()
+    if ball then
+        local orig = ball.Color
+        ball.Color = Color3.fromRGB(0, 255, 100)
+        task.wait(0.6)
+        ball.Color = orig
+    end
+end)
+
+dropBtn.MouseButton1Click:Connect(function()
+    local ball = getBall()
+    if ball then
+        ball.AssemblyLinearVelocity = Vector3.new(0, -20, 0)
+        if ball.SetNetworkOwner then ball:SetNetworkOwner(nil) end
+    end
+end)
+
+-- Toggle Menu (B key)
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.B then
+        screenGui.Enabled = not screenGui.Enabled
+    end
+end)
+
+print("Ball Manipulation loaded! Press B for menu | Left Click to Catch ball to hand")
