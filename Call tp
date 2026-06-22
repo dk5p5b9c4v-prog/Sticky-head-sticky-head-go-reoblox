@@ -1,0 +1,158 @@
+-- Ball TP Control (LocalScript)
+-- Teleports football to Right or Left Hand - Dark Gray + Blue Menu
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BallTPControl"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Main Frame (Dark Gray)
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 280, 0, 200)
+mainFrame.Position = UDim2.new(0.5, -140, 0.5, -100)
+mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)  -- Dark gray with slight blue tint
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundColor3 = Color3.fromRGB(0, 120, 215)  -- Blue accent bar
+title.Text = "Ball TP Control"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = mainFrame
+
+-- Close Button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextScaled = true
+closeBtn.Font = Enum.Font.Gotham
+closeBtn.Parent = mainFrame
+
+closeBtn.MouseButton1Click:Connect(function()
+    screenGui.Enabled = false
+end)
+
+-- TP Buttons
+local function createTPButton(text, yPos, handSide)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.85, 0, 0, 45)
+    btn.Position = UDim2.new(0.075, 0, 0, yPos)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)  -- Dark gray with blue undertone
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(0, 180, 255)  -- Bright blue text
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamSemibold
+    btn.Parent = mainFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+    
+    -- Blue hover effect
+    btn.MouseEnter:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(55, 55, 70)
+    end)
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    end)
+    
+    return btn, handSide
+end
+
+local rightBtn = createTPButton("Teleport to Right Hand", 55, "Right")
+local leftBtn  = createTPButton("Teleport to Left Hand", 110, "Left")
+
+-- Corner for main frame
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 8)
+mainCorner.Parent = mainFrame
+
+-- Teleport Function
+local function teleportBallToHand(handSide)
+    local character = player.Character
+    if not character then 
+        warn("Character not loaded!")
+        return 
+    end
+    
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    -- Find hand (supports R15 and R6)
+    local hand
+    if handSide == "Right" then
+        hand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+    else
+        hand = character:FindFirstChild("LeftHand") or character:FindFirstChild("Left Arm")
+    end
+    
+    if not hand then
+        warn(handSide .. " hand not found!")
+        return
+    end
+    
+    -- Find the ball
+    local ball = workspace:FindFirstChild("Football") 
+             or workspace:FindFirstChild("Ball")
+             or workspace:FindFirstChildWhichIsA("BasePart")
+    
+    if not ball then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and (obj.Name:lower():find("ball") or obj.Name:lower():find("football")) then
+                ball = obj
+                break
+            end
+        end
+    end
+    
+    if ball and ball:IsA("BasePart") then
+        -- Position in front of the chosen hand
+        local offset = CFrame.new(0, 0, -1.8)
+        ball.CFrame = hand.CFrame * offset
+        
+        -- Reset physics
+        ball.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        ball.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        
+        if ball.SetNetworkOwner then
+            ball:SetNetworkOwner(player)
+        end
+        
+        print("Ball teleported to " .. handSide .. " hand!")
+    else
+        warn("Ball not found!")
+    end
+end
+
+rightBtn.MouseButton1Click:Connect(function()
+    teleportBallToHand("Right")
+end)
+
+leftBtn.MouseButton1Click:Connect(function()
+    teleportBallToHand("Left")
+end)
+
+-- Toggle menu with B key
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.B then
+        screenGui.Enabled = not screenGui.Enabled
+    end
+end)
+
+print("Ball TP Control loaded! Press B to toggle menu.")
