@@ -1,0 +1,297 @@
+-- Ball TP Control (LocalScript) - NFL Universe Football
+-- Cooler GUI Design + Master On/Off + Manipulation + Mouse Catch
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BallTPControl"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Main Frame (Modern Dark Look)
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 340, 0, 320)
+mainFrame.Position = UDim2.new(0.5, -170, 0.5, -160)
+mainFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Parent = screenGui
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(0, 170, 255)
+mainStroke.Thickness = 1.5
+mainStroke.Parent = mainFrame
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = mainFrame
+
+-- Title Bar with Gradient
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 45)
+title.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
+title.Text = "⚽ Ball TP Control ⚽"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBlack
+title.Parent = mainFrame
+title.Active = true
+title.Draggable = true
+
+local titleGradient = Instance.new("UIGradient")
+titleGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 140, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 80, 200))
+}
+titleGradient.Parent = title
+
+local titleStroke = Instance.new("UIStroke")
+titleStroke.Color = Color3.fromRGB(255, 255, 255)
+titleStroke.Thickness = 1
+titleStroke.Transparency = 0.7
+titleStroke.Parent = title
+
+-- Close Button (Modern)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 34, 0, 34)
+closeBtn.Position = UDim2.new(1, -40, 0, 6)
+closeBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextScaled = true
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Parent = mainFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(1, 0)
+closeCorner.Parent = closeBtn
+
+closeBtn.MouseButton1Click:Connect(function() screenGui.Enabled = false end)
+
+-- Master On/Off Button
+local scriptEnabled = true
+
+local masterBtn = Instance.new("TextButton")
+masterBtn.Size = UDim2.new(0.85, 0, 0, 48)
+masterBtn.Position = UDim2.new(0.075, 0, 0, 60)
+masterBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+masterBtn.Text = "✅ Script: ENABLED"
+masterBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+masterBtn.TextScaled = true
+masterBtn.Font = Enum.Font.GothamBold
+masterBtn.Parent = mainFrame
+
+local masterStroke = Instance.new("UIStroke")
+masterStroke.Color = Color3.fromRGB(0, 255, 120)
+masterStroke.Thickness = 2
+masterStroke.Parent = masterBtn
+
+local masterCorner = Instance.new("UICorner")
+masterCorner.CornerRadius = UDim.new(0, 10)
+masterCorner.Parent = masterBtn
+
+masterBtn.MouseButton1Click:Connect(function()
+    scriptEnabled = not scriptEnabled
+    if scriptEnabled then
+        masterBtn.Text = "✅ Script: ENABLED"
+        masterBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+    else
+        masterBtn.Text = "❌ Script: DISABLED"
+        masterBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end
+end)
+
+-- Manipulation Mode
+local magnetEnabled = false
+local magnetConnection = nil
+
+local magnetBtn = Instance.new("TextButton")
+magnetBtn.Size = UDim2.new(0.85, 0, 0, 50)
+magnetBtn.Position = UDim2.new(0.075, 0, 0, 120)
+magnetBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+magnetBtn.Text = "Manipulation Mode: OFF"
+magnetBtn.TextColor3 = Color3.fromRGB(0, 200, 255)
+magnetBtn.TextScaled = true
+magnetBtn.Font = Enum.Font.GothamSemibold
+magnetBtn.Parent = mainFrame
+
+local magCorner = Instance.new("UICorner")
+magCorner.CornerRadius = UDim.new(0, 10)
+magCorner.Parent = magnetBtn
+
+local magStroke = Instance.new("UIStroke")
+magStroke.Color = Color3.fromRGB(80, 80, 100)
+magStroke.Thickness = 1.5
+magStroke.Parent = magnetBtn
+
+magnetBtn.MouseButton1Click:Connect(function()
+    if not scriptEnabled then return end
+    magnetEnabled = not magnetEnabled
+    magnetBtn.Text = "Manipulation Mode: " .. (magnetEnabled and "ON [Right]" or "OFF")
+    if magnetEnabled then
+        magnetBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
+        startManipulation()
+    else
+        magnetBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+        stopManipulation()
+    end
+end)
+
+-- Offset Slider Section
+local offsetLabel = Instance.new("TextLabel")
+offsetLabel.Size = UDim2.new(0.85, 0, 0, 25)
+offsetLabel.Position = UDim2.new(0.075, 0, 0, 185)
+offsetLabel.BackgroundTransparency = 1
+offsetLabel.Text = "Hand Offset: 1.8 studs"
+offsetLabel.TextColor3 = Color3.fromRGB(180, 220, 255)
+offsetLabel.TextScaled = true
+offsetLabel.Font = Enum.Font.GothamSemibold
+offsetLabel.Parent = mainFrame
+
+local offsetSlider = Instance.new("Frame")
+offsetSlider.Size = UDim2.new(0.85, 0, 0, 10)
+offsetSlider.Position = UDim2.new(0.075, 0, 0, 215)
+offsetSlider.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+offsetSlider.Parent = mainFrame
+
+local sliderBar = Instance.new("Frame")
+sliderBar.Size = UDim2.new(0.6, 0, 1, 0)
+sliderBar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+sliderBar.Parent = offsetSlider
+
+local knob = Instance.new("Frame")
+knob.Size = UDim2.new(0, 18, 0, 18)
+knob.BackgroundColor3 = Color3.fromRGB(0, 230, 255)
+knob.BorderSizePixel = 0
+knob.Parent = offsetSlider
+knob.ZIndex = 3
+
+local knobStroke = Instance.new("UIStroke")
+knobStroke.Color = Color3.fromRGB(255, 255, 255)
+knobStroke.Thickness = 1.5
+knobStroke.Parent = knob
+
+local knobCorner = Instance.new("UICorner")
+knobCorner.CornerRadius = UDim.new(1, 0)
+knobCorner.Parent = knob
+
+local sliderCorner = Instance.new("UICorner")
+sliderCorner.CornerRadius = UDim.new(0, 6)
+sliderCorner.Parent = offsetSlider
+sliderCorner:Clone().Parent = sliderBar
+
+local offsetValue = 1.8
+
+local function updateSlider(val)
+    offsetValue = math.clamp(val, 0.5, 5)
+    local percent = (offsetValue - 0.5) / 4.5
+    sliderBar.Size = UDim2.new(percent, 0, 1, 0)
+    
+    local sliderAbsSize = offsetSlider.AbsoluteSize.X
+    local knobX = percent * sliderAbsSize - 9
+    knob.Position = UDim2.new(0, knobX, 0.5, -9)
+    
+    offsetLabel.Text = string.format("Hand Offset: %.1f studs", offsetValue)
+end
+
+local function handleSliderDrag()
+    local conn = UserInputService.InputChanged:Connect(function(move)
+        if move.UserInputType == Enum.UserInputType.MouseMovement then
+            local rel = (move.Position.X - offsetSlider.AbsolutePosition.X) / offsetSlider.AbsoluteSize.X
+            updateSlider(0.5 + rel * 4.5)
+        end
+    end)
+    local release = UserInputService.InputEnded:Connect(function(endInput)
+        if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+            conn:Disconnect()
+            release:Disconnect()
+        end
+    end)
+end
+
+offsetSlider.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        handleSliderDrag()
+    end
+end)
+
+updateSlider(1.8)
+
+-- Functions (unchanged)
+local function getBall()
+    local ball = workspace:FindFirstChild("Football") or workspace:FindFirstChild("Ball") or workspace:FindFirstChild("TheDuke")
+    if not ball then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and (obj.Name:lower():find("ball") or obj.Name:lower():find("football") or obj.Name:lower():find("duke")) then
+                return obj
+            end
+        end
+    end
+    return ball
+end
+
+local function getHand()
+    local character = player.Character
+    if not character then return nil end
+    return character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+end
+
+local function teleportBallToHand()
+    if not scriptEnabled then return end
+    local hand = getHand()
+    local ball = getBall()
+    if hand and ball and ball:IsA("BasePart") then
+        ball.CFrame = hand.CFrame * CFrame.new(0, 0, -offsetValue)
+        ball.AssemblyLinearVelocity = Vector3.new(0,0,0)
+        ball.AssemblyAngularVelocity = Vector3.new(0,0,0)
+        if ball.SetNetworkOwner then ball:SetNetworkOwner(player) end
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp or not scriptEnabled then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        teleportBallToHand()
+    end
+end)
+
+local function startManipulation()
+    stopManipulation()
+    magnetConnection = RunService.Heartbeat:Connect(function()
+        if not scriptEnabled or not magnetEnabled then return end
+        local hand = getHand()
+        local ball = getBall()
+        if not hand or not ball or not ball:IsA("BasePart") then return end
+        
+        local targetPos = hand.Position + hand.CFrame.LookVector * -offsetValue
+        local direction = (targetPos - ball.Position)
+        local distance = direction.Magnitude
+        
+        local pullStrength = distance > 8 and 45 or 75
+        local force = direction.Unit * math.min(distance * pullStrength, 350)
+        
+        ball.AssemblyLinearVelocity = ball.AssemblyLinearVelocity:Lerp(force, 0.6)
+        ball.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        if ball.SetNetworkOwner then ball:SetNetworkOwner(player) end
+    end)
+end
+
+local function stopManipulation()
+    if magnetConnection then magnetConnection:Disconnect() magnetConnection = nil end
+end
+
+-- Toggle Menu (B)
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.B then
+        screenGui.Enabled = not screenGui.Enabled
+    end
+end)
+
+print("✅ Cool GUI Ball Control loaded for NFL Universe Football! Press B")
